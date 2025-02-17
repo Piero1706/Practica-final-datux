@@ -1,38 +1,41 @@
 import pandas as pd
-from config.app import App
+import os
 
-def GenerateReportProfitPivotPandas(app: App):
-    """
-    Genera un reporte de Profit por Categoría y Sub-Categoría utilizando
-    únicamente Pandas (pivot table), sin consultas SQL.
-    Luego envía el reporte por correo.
-    """
-    pathData = "/workspaces/Practica-final-datux/proyecto/files/datafuente.xls"
-    df = pd.read_excel(pathData, sheet_name="Orders")
- 
-    pivot_profit = df.pivot_table(
-        index="Category",       
-        columns="Sub-Category", 
-        values="Profit",        
-        aggfunc="sum"           
-    )
-
-    fecha = "reporte_profit_pivot"
-    path = f"/workspaces/workspacepy0125v2/proyecto/files/data_{fecha}.csv"
-    pivot_profit.to_csv(path)
-    print(f"✅ Reporte pivot de Profit generado en: {path}")
-
-    subject = "Reporte de Profit (Pivot) por Categoría y Sub-Categoría"
-    body = (
-        "Hola,\n\n"
-        "Adjunto encontrarás el reporte de Profit agrupado por Categoría y Sub-Categoría "
-        "generado con una pivot table en Pandas.\n\n"
-        "Saludos,\nEl Equipo"
-    )
-    app.mail.send_email(
-        receiver_email="from@example.com",
-        subject=subject,
-        body=body,
-        file_path=path
-    )
-    print("✅ Correo enviado con el reporte de Profit (Pivot).")
+def GenerateReportProfitPivotPandas(app):
+    file_path = "proyecto/files/datafuente.xls"
+    output_path = "proyecto/files/reporte_ganancias.csv"
+    
+    if not os.path.exists(file_path):
+        print(f"❌ ERROR: El archivo {file_path} no existe.")
+        return
+    
+    try:
+        df = pd.read_excel(file_path)
+        
+        column_mapping = {
+            'Order Date': 'Order Date',
+            'Category': 'Category',
+            'Profit': 'Profit'
+        }
+        
+        df.rename(columns=column_mapping, inplace=True)
+        
+        required_columns = ['Order Date', 'Category', 'Profit']
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        
+        if missing_columns:
+            print(f"❌ ERROR: Faltan las siguientes columnas en el archivo Excel: {missing_columns}")
+            print(f"🔍 Columnas encontradas en el archivo: {list(df.columns)}")
+            return
+        
+        df['Order Date'] = pd.to_datetime(df['Order Date'], errors='coerce')
+        
+        pivot_profit = df.pivot_table(values='Profit', index='Category', aggfunc='sum')
+        
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        
+        pivot_profit.to_csv(output_path)
+        
+        print(f"✅ Reporte generado con éxito: {output_path}")
+    except Exception as e:
+        print(f"❌ ERROR: Ocurrió un problema al procesar el archivo Excel. Detalles: {e}")
